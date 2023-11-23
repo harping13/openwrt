@@ -45,7 +45,8 @@
 +	        
 +	if (rxsp->status11 & AR_CRCErr){
 +	            csi_record_payload(data_addr,data_len);
-+             csi_record_status(ah,rxs,rxsp,data_addr);
++                   csi_record_status(ah,rxs,rxsp,data_addr);
++	        }
 +        }else{
 +            if  (rxs->rs_more == 1) {
 +                csi_record_payload(data_addr,data_len);
