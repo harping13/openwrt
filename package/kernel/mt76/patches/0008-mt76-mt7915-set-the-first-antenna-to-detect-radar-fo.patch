@@ -1,0 +1,47 @@
+diff --git a/mt7915/mac.c b/mt7915/mac.c
+index 31d1138..a1d5c15 100644
+--- a/mt7915/mac.c
++++ b/mt7915/mac.c
+@@ -1817,6 +1817,13 @@ static int mt7915_dfs_start_rdd(struct mt7915_dev *dev, int chain)
+ 	if (err < 0)
+ 		return err;
+ 
++	if (is_mt7915(&dev->mt76)) {
++		err = mt76_connac_mcu_rdd_cmd(&dev->mt76, RDD_SET_WF_ANT, chain,
++					      0, dev->dbdc_support ? 2 : 0);
++		if (err < 0)
++			return err;
++	}
++
+ 	return mt76_connac_mcu_rdd_cmd(&dev->mt76, RDD_DET_MODE, chain,
+ 				       MT_RX_SEL0, 1);
+ }
+@@ -1937,6 +1944,14 @@ stop:
+ 	if (err < 0)
+ 		return err;
+ 
++	if (is_mt7915(&dev->mt76)) {
++		err = mt76_connac_mcu_rdd_cmd(&dev->mt76, RDD_SET_WF_ANT,
++					      phy->band_idx, 0,
++					      dev->dbdc_support ? 2 : 0);
++		if (err < 0)
++			return err;
++	}
++
+ 	mt7915_dfs_stop_radar_detector(phy);
+ 	phy->mt76->dfs_state = MT_DFS_STATE_DISABLED;
+ 
+diff --git a/mt7915/mt7915.h b/mt7915/mt7915.h
+index 54ef2a1..836a7f1 100644
+--- a/mt7915/mt7915.h
++++ b/mt7915/mt7915.h
+@@ -359,6 +359,7 @@ enum mt7915_rdd_cmd {
+ 	RDD_DET_MODE,
+ 	RDD_RADAR_EMULATE,
+ 	RDD_START_TXQ = 20,
++	RDD_SET_WF_ANT = 30,
+ 	RDD_CAC_START = 50,
+ 	RDD_CAC_END,
+ 	RDD_NORMAL_START,
+-- 
+2.18.0
