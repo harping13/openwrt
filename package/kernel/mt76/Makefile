@@ -6,11 +6,10 @@ PKG_RELEASE=4
 PKG_LICENSE:=GPLv2
 PKG_LICENSE_FILES:=
 
-PKG_SOURCE_URL:=https://github.com/openwrt/mt76
+PKG_SOURCE_URL:=https://github.com/harping13/mt76.git
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_DATE:=2022-08-26
-PKG_SOURCE_VERSION:=5ec78e1ec43d1e39edfea1efb9fd4541fa004af0
-PKG_MIRROR_HASH:=b96ec5199d423dc27e4fe7f0e94c8d5970f6db812237816235f3b735a5cb216a
+PKG_SOURCE_VERSION:=refs/heads/my-custom-changes
 
 PKG_MAINTAINER:=Felix Fietkau <nbd@nbd.name>
 PKG_USE_NINJA:=0
