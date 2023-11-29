@@ -19,25 +19,22 @@ Index: mt7915/init.c
 ===================================================================
 --- a/mt7915/init.c
 +++ b/mt7915/init.c
-@@ -674,7 +674,12 @@ mt7915_register_ext_phy(struct mt7915_de
+@@ -674,7 +674,10 @@ mt7915_register_ext_phy(struct mt7915_de
  
  	/* init wiphy according to mphy and phy */
  	mt7915_init_wiphy(phy);
 -
-+#ifdef CONFIG_MTK_VENDOR
 +	INIT_LIST_HEAD(&phy->csi.csi_list);
 +	spin_lock_init(&phy->csi.csi_lock);
 +	mt7915_vendor_register(phy);
-+#endif
 +	
  	ret = mt76_register_phy(mphy, true, mt76_rates,
  				ARRAY_SIZE(mt76_rates));
  	if (ret)
-@@ -1154,6 +1159,24 @@ void mt7915_set_stream_he_caps(struct mt
+@@ -1154,6 +1159,22 @@ void mt7915_set_stream_he_caps(struct mt
  		band->n_iftype_data = n;
  	}
  }
-+#ifdef CONFIG_MTK_VENDOR
 +static int mt7915_unregister_features(struct mt7915_phy *phy)
 +{
 +	struct csi_data *c, *tmp_c;
@@ -54,73 +51,66 @@ Index: mt7915/init.c
 +
 +	return 0;
 +}
-+#endif
+
  
  static void mt7915_unregister_ext_phy(struct mt7915_dev *dev)
  {
-@@ -1162,6 +1185,9 @@ static void mt7915_unregister_ext_phy(st
+@@ -1162,6 +1185,7 @@ static void mt7915_unregister_ext_phy(st
  
  	if (!phy)
  		return;
-+#ifdef CONFIG_MTK_VENDOR
+
 +	mt7915_unregister_features(phy);
-+#endif
+
  
  	mt7915_unregister_thermal(phy);
  	mt76_unregister_phy(mphy);
-@@ -1174,6 +1200,9 @@ static void mt7915_stop_hardware(struct
+@@ -1174,6 +1200,7 @@ static void mt7915_stop_hardware(struct
  	mt76_connac2_tx_token_put(&dev->mt76);
  	mt7915_dma_cleanup(dev);
  	tasklet_disable(&dev->mt76.irq_tasklet);
-+#ifdef CONFIG_MTK_VENDOR
+
 +	mt7915_unregister_features(&dev->phy);
-+#endif
+
  
  	if (is_mt798x(&dev->mt76))
  		mt7986_wmac_disable(dev);
-@@ -1212,6 +1241,11 @@ int mt7915_register_device(struct mt7915
+@@ -1212,6 +1241,9 @@ int mt7915_register_device(struct mt7915
  #ifdef CONFIG_NL80211_TESTMODE
  	dev->mt76.test_ops = &mt7915_testmode_ops;
  #endif
-+#ifdef CONFIG_MTK_VENDOR
 +	INIT_LIST_HEAD(&dev->phy.csi.csi_list);
 +	spin_lock_init(&dev->phy.csi.csi_lock);
 +	mt7915_vendor_register(&dev->phy);
-+#endif
- 
+
  	ret = mt76_register_device(&dev->mt76, true, mt76_rates,
  				   ARRAY_SIZE(mt76_rates));
 Index: mt7915/mcu.c
 ===================================================================
 --- a/mt7915/mcu.c
 +++ b/mt7915/mcu.c
-@@ -38,6 +38,9 @@
+@@ -38,6 +38,7 @@
  static bool sr_scene_detect = true;
  module_param(sr_scene_detect, bool, 0644);
  MODULE_PARM_DESC(sr_scene_detect, "Enable firmware scene detection algorithm");
-+#ifdef CONFIG_MTK_VENDOR
 +static int mt7915_mcu_report_csi(struct mt7915_dev *dev, struct sk_buff *skb);
-+#endif
  
  static u8
  mt7915_mcu_get_sta_nss(u16 mcs_map)
-@@ -371,6 +374,11 @@ mt7915_mcu_rx_ext_event(struct mt7915_de
+@@ -371,6 +374,9 @@ mt7915_mcu_rx_ext_event(struct mt7915_de
  	case MCU_EXT_EVENT_FW_LOG_2_HOST:
  		mt7915_mcu_rx_log_message(dev, skb);
  		break;
-+#ifdef CONFIG_MTK_VENDOR
 +	case MCU_EXT_EVENT_CSI_REPORT:
 +		mt7915_mcu_report_csi(dev, skb);
-+		break;
-+#endif		
++		break;	
  	case MCU_EXT_EVENT_BCC_NOTIFY:
  		mt7915_mcu_rx_bcc_notify(dev, skb);
  		break;
-@@ -3862,3 +3870,105 @@ int mt7915_mcu_rf_regval(struct mt7915_d
+@@ -3862,3 +3870,103 @@ int mt7915_mcu_rf_regval(struct mt7915_d
  
  	return 0;
  }
-+#ifdef CONFIG_MTK_VENDOR
 +int mt7915_mcu_set_csi(struct mt7915_phy *phy, u8 mode,
 +			u8 cfg, u8 v1, u32 v2, u8 *mac_addr)
 +{
@@ -220,17 +210,15 @@ Index: mt7915/mcu.c
 +
 +	return 0;
 +}
-+#endif
 +
 Index: mt7915/mcu.h
 ===================================================================
 --- a/mt7915/mcu.h
 +++ b/mt7915/mcu.h
-@@ -528,5 +528,79 @@ mt7915_get_power_bound(struct mt7915_phy
+@@ -528,5 +528,77 @@ mt7915_get_power_bound(struct mt7915_phy
  
  	return txpower;
  }
-+#ifdef CONFIG_MTK_VENDOR
 +struct mt7915_mcu_csi {
 +	u8 band;
 +	u8 mode;
@@ -304,18 +292,16 @@ Index: mt7915/mcu.h
 +
 +	struct list_head node;
 +};
-+#endif
  #endif
 Index: mt7915/mt7915.h
 ===================================================================
 --- a/mt7915/mt7915.h
 +++ b/mt7915/mt7915.h
-@@ -237,6 +237,20 @@ struct mt7915_phy {
+@@ -237,6 +237,18 @@ struct mt7915_phy {
  		u8 spe_idx;
  	} test;
  #endif
 +
-+#ifdef CONFIG_MTK_VENDOR
 +	struct {
 +		struct list_head csi_list;
 +		spinlock_t csi_lock;
@@ -327,7 +313,6 @@ Index: mt7915/mt7915.h
 +		u32 interval;
 +		u32 last_record;
 +	} csi;
-+#endif
  };
  
  struct mt7915_dev {
