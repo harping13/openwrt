@@ -59,20 +59,14 @@ Index: mt7915/init.c
  
  	if (!phy)
  		return;
-
 +	mt7915_unregister_features(phy);
-
- 
  	mt7915_unregister_thermal(phy);
  	mt76_unregister_phy(mphy);
 @@ -1174,6 +1200,7 @@ static void mt7915_stop_hardware(struct
  	mt76_connac2_tx_token_put(&dev->mt76);
  	mt7915_dma_cleanup(dev);
  	tasklet_disable(&dev->mt76.irq_tasklet);
-
 +	mt7915_unregister_features(&dev->phy);
-
- 
  	if (is_mt798x(&dev->mt76))
  		mt7986_wmac_disable(dev);
 @@ -1212,6 +1241,9 @@ int mt7915_register_device(struct mt7915
